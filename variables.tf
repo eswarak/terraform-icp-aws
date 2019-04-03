@@ -1,6 +1,6 @@
 ####### AWS Access and Region Details #############################
 variable "aws_region" {
-  default  = "us-east-2"
+  default  = "us-east-1"
   description = "One of us-east-2, us-east-1, us-west-1, us-west-2, ap-south-1, ap-northeast-2, ap-southeast-1, ap-southeast-2, ap-northeast-1, us-west-2, eu-central-1, eu-west-1, eu-west-2, sa-east-1"
 }
 
@@ -14,6 +14,7 @@ variable "azs" {
 # SSH Key
 variable "key_name" {
   description = "Name of the EC2 key pair"
+  default = ""
 }
 
 variable "privatekey" {
@@ -32,7 +33,8 @@ variable "default_tags" {
   type    = "map"
   default = {
     Owner         = "icpuser"
-    Environment   = "icp-test"
+    Environment   = "ICP 312"
+    DeployedBy    = "SomeName"
   }
 
 }
@@ -64,7 +66,7 @@ variable "ami" { default = "" }
 variable "bastion" {
   type = "map"
   default = {
-    nodes     = "0"
+    nodes     = "1"
     type      = "t2.micro"
     ami       = "" // Leave blank to let terraform search for Ubuntu 16.04 ami. NOT RECOMMENDED FOR PRODUCTION
     disk      = "10" //GB
@@ -131,16 +133,21 @@ variable "va" {
 }
 
 variable "instance_name" { default = "icp" }
-variable "icppassword" { default = "MySecretP4ssw0RD" }
+variable "icppassword" { default = "ekdMySecretP4ssw0RD" }
 
 variable "docker_package_location" {
   description = "When installing ICP EE on RedHat. Prefix location string with http: or nfs: to indicate protocol "
-  default     = ""
+  default     = "./icp-install/icp-docker-18.03.1_x86_64.bin"
 }
 
 variable "image_location" {
   description = "Image location when installing EnterPrise edition. prefix location string with http: or nfs: to indicate protocol"
-  default     = ""
+  default     = "./icp-install/ibm-cloud-private-x86_64-3.1.2.tar.gz"
+}
+
+variable "image_name" {
+  description = "Image location when installing EnterPrise edition. prefix location string with http: or nfs: to indicate protocol"//Need this variable as bootstrap.sh now uses to use the right image name.
+  default     = "ibm-cloud-private-x86_64-3.1.2.tar.gz"
 }
 
 variable "patch_images" {
@@ -157,7 +164,7 @@ variable "patch_scripts" {
 
 variable "icp_inception_image" {
   description = "icp-inception bootstrap image repository"
-  default     = "ibmcom/icp-inception:2.1.0.2-ee"
+  default     = "ibmcom/icp-inception-amd64:3.1.2-ee"
 }
 
 variable "icp_config_yaml" {

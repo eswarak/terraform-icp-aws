@@ -6,12 +6,15 @@ resource "random_id" "clusterid" {
 locals  {
   iam_ec2_instance_profile_id = "${var.existing_ec2_iam_instance_profile_name != "" ?
         var.existing_ec2_iam_instance_profile_name :
-        element(concat(aws_iam_instance_profile.icp_ec2_instance_profile.*.id, list("")), 0)}"
+        element(concat(aws_iam_instance_profile.icp_ec2_master_profile.*.id, list("")), 0)}"
+  iam_ec2_nodeinstance_profile_id = "${var.existing_ec2_iam_instance_profile_name != "" ?
+        var.existing_ec2_iam_instance_profile_name :
+        element(concat(aws_iam_instance_profile.icp_ec2_node_profile.*.id, list("")), 0)}"
   efs_audit_mountpoints = "${concat(aws_efs_mount_target.icp-audit.*.dns_name, list(""))}"
   efs_registry_mountpoints = "${concat(aws_efs_mount_target.icp-registry.*.dns_name, list(""))}"
   image_package_uri = "${substr(var.image_location, 0, min(2, length(var.image_location))) == "s3" ?
     var.image_location :
-      var.image_location  == "" ? "" : "s3://${element(concat(aws_s3_bucket.icp_binaries.*.id, list("")), 0)}/ibm-cloud-private.tar.gz"}"
+      var.image_location  == "" ? "" : "s3://${element(concat(aws_s3_bucket.icp_binaries.*.id, list("")), 0)}/${var.image_name}"}"
   docker_package_uri = "${substr(var.docker_package_location, 0, min(2, length(var.docker_package_location))) == "s3" ?
     var.docker_package_location :
       var.docker_package_location == "" ? "" : "s3://${element(concat(aws_s3_bucket.icp_binaries.*.id, list("")), 0)}/icp-docker.bin"}"
@@ -241,7 +244,7 @@ resource "aws_instance" "icpproxy" {
     device_index = 0
   }
 
-  iam_instance_profile = "${local.iam_ec2_instance_profile_id}"
+  iam_instance_profile = "${local.iam_ec2_nodeinstance_profile_id}"
 
   tags = "${merge(
     var.default_tags,
@@ -314,7 +317,7 @@ resource "aws_instance" "icpmanagement" {
     volume_type       = "gp2"
   }
 
-  iam_instance_profile = "${local.iam_ec2_instance_profile_id}"
+  iam_instance_profile = "${local.iam_ec2_nodeinstance_profile_id}"
 
   tags = "${merge(
     var.default_tags,
@@ -386,7 +389,7 @@ resource "aws_instance" "icpva" {
     volume_type       = "gp2"
   }
 
-  iam_instance_profile = "${local.iam_ec2_instance_profile_id}"
+  iam_instance_profile = "${local.iam_ec2_nodeinstance_profile_id}"
 
   tags = "${merge(
     var.default_tags,
@@ -449,7 +452,7 @@ resource "aws_instance" "icpnodes" {
 
   availability_zone = "${format("%s%s", element(list(var.aws_region), count.index), element(var.azs, count.index))}"
 
-  iam_instance_profile = "${local.iam_ec2_instance_profile_id}"
+  iam_instance_profile = "${local.iam_ec2_nodeinstance_profile_id}"
 
   ebs_optimized = "${var.worker["ebs_optimized"]}"
   root_block_device {
