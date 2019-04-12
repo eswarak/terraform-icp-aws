@@ -501,3 +501,8 @@ The Kubernetes API can be reached at `https://<cluster_lb_address>:8001`.  To ob
 ## AWS Cloud Provider
 
 The AWS Cloud provider provides Kubernetes integration with Elastic Load Balancer and Elastic Block Store.  See documentation on [LoadBalancer](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#aws) and [Volume](https://kubernetes.io/docs/concepts/storage/storage-classes/#aws)
+
+## Credits
+The above is adopted from the work done by:
+1. Jeffrey Kwong
+2. Peter Van Sickle
