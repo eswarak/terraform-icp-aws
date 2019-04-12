@@ -2,9 +2,7 @@
 
 This Terraform configurations uses the [AWS provider](https://www.terraform.io/docs/providers/aws/index.html) to provision virtual machines on AWS to prepare VMs and deploy [IBM Cloud Private](https://www.ibm.com/cloud-computing/products/ibm-cloud-private/) on them.  This Terraform template automates best practices learned from installing ICP on AWS at numerous client sites in production.
 
-This template (on the [`master` branch](https://github.com/ibm-cloud-architecture/terraform-icp-aws/tree/master)) provisions a highly-available cluster with ICP 3.1.0 Enterprise Edition.
-
-We have also verified with ICP 2.1.0.3 Enterprise Edition with Fixpack 1 applied, with the templates available on the [`2.1.X` branch](https://github.com/ibm-cloud-architecture/terraform-icp-aws/tree/2.1.X).  For ICP 2.1.0.3 EE Fixpack release notes, follow [this link](https://www.ibm.com/support/knowledgecenter/SSBS6K_2.1.0.3/getting_started/fix_pack1.html).
+This template (on the [`master` branch](https://github.com/ibm-cloud-architecture/terraform-icp-aws/tree/master)) provisions a highly-available cluster with ICP 3.1.2 Enterprise Edition.
 
 * [Infrastructure Architecture](#infrastructure-architecture)
 * [Terraform Automation](#terraform-automation)
@@ -34,19 +32,11 @@ In a single availability zone, we divide the network into a public subnet which 
    brew install terraform
    ```
 
-1. Create an S3 bucket in the same region that the ICP cluster will be created and upload the ICP binaries.  Make note of the bucket name.  You can use the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/awscli-install-bundle.html) to do this.  
+1. Create an S3 bucket in the same region that the ICP cluster will be created and upload the ICP binaries.  Make note of the bucket name.  You can use the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/awscli-install-bundle.html) to do this.
 
   For ICP 3.1.0-EE, you will need to copy the following:
-  - the ICP binary package tarball (`ibm-cloud-private-x86_64-3.1.0.tar`)
+  - the ICP binary package tarball (`ibm-cloud-private-x86_64-3.1.2.tar`)
   - ICP Docker package (`icp-docker-18.03.1_x86_64`)
-
-   For ICP 2.1.0.3-EE, you will need to copy the following:
-   - the ICP binary package tarball (`ibm-cloud-private-x86_64-2.1.0.3.tar.gz`)
-   - ICP Docker package (`icp-docker-17.12.1_x86_64.bin`)
-   - The ICP patched installer image (`icp-inception-amd64-2.1.0.3-fp1.tar`)
-   - The ICP 2.1.0.3 Fixpack 1 script (`ibm-cloud-private-2.1.0.3-fp1.sh`)
-
-   The ICP patched installer image and Fixpack 1 script can be acquired from [IBM Fix Central](https://www.ibm.com/support/fixcentral/).  
 
 2. Create a file, `terraform.tfvars` containing the values for the following:
 
@@ -56,8 +46,9 @@ In a single availability zone, we divide the network into a public subnet which 
 | `azs`          | no           | AWS Availability Zones that the VPC will be created in, e.g. `[ "a", "b", "c"]` to install in three availability zones.  By default, uses `["a", "b", "c"]`.  Note that the AWS selected region should have at least 3 availability zones for high availability.  Setting to a single availability zone will disable high availability and not provision EFS, in this case, reduce the number of master and proxy nodes to 1. |
 | `key_name`     | yes          | AWS keypair name to assign to instances     |
 | `ami` | no | Base AMI to use for all EC2 instances.  If none provided, will search for latest version of RHEL 7.5 |
-| `docker_package_location` | no         | S3 URL of the ICP docker package for RHEL (e.g. `s3://<bucket>/<filename>`). Ubuntu will use `docker-ce` from the [Docker apt repository](https://docs.docker.com/install/linux/docker-ce/ubuntu/).  If Docker is already installed in the base AMI, this step will be skipped. |
-| `image_location` | no         | S3 URL of the ICP binary package (e.g. `s3://<bucket>/ibm-cloud-private-x86_64-2.1.0.3.tar.gz`).  Can also be a local path, e.g. `./icp-install/ibm-cloud-private-x86_64-2.1.0.3.tar.gz`; in this case the Terraform automation will create an S3 bucket and upload the binary package.  If provided, the automation will download the binaries from S3 and perform a `docker load` on every instance.  Note that it is faster to create an instance, install docker, perform the `docker load`, and convert to an AMI for use as a base instance for all node role types, as loading docker images takes around 20 minutes per EC2 instance. If the installer image is already on the EC2 instance, this step is skipped. |
+| `docker_package_location` | yes         | S3 URL of the ICP docker package for RHEL (e.g. `s3://<bucket>/<filename>`). Ubuntu will use `docker-ce` from the [Docker apt repository](https://docs.docker.com/install/linux/docker-ce/ubuntu/).  If Docker is already installed in the base AMI, this step will be skipped. |
+| `image_location` | yes         | S3 URL of the ICP binary package (e.g. `s3://<bucket>/ibm-cloud-private-x86_64-2.1.0.3.tar.gz`).  Can also be a local path, e.g. `./icp-install/ibm-cloud-private-x86_64-2.1.0.3.tar.gz`; in this case the Terraform automation will create an S3 bucket and upload the binary package.  If provided, the automation will download the binaries from S3 and perform a `docker load` on every instance.  Note that it is faster to create an instance, install docker, perform the `docker load`, and convert to an AMI for use as a base instance for all node role types, as loading docker images takes around 20 minutes per EC2 instance. If the installer image is already on the EC2 instance, this step is skipped. |
+| `image_name`   |  yes | The name of the image of ICP which is required for a docker load into the boot node.  |
 | `patch_images` | no         | A list of S3 URLs for the images to load to each ICP node before installation.  For example, for ICP 2.1.0.3 fixpack 1, this would be `[ "s3://<bucket>/icp-inception-amd64.2.1.0.3.fp1.tar" ]`.  If provided, the automation will download these additional binaries from S3 and perform a `docker load` on every EC2 instance in the ICP cluster. |
 | `patch_scripts` | no         | A list of S3 URLs for the patch scripts to execute after installation completed.  For example, for ICP 2.1.0.3 fixpack 1, this would be `[ "s3://<bucket>/ibm-cloud-private-2.1.0.3-fp1.sh" ]`.  If provided, the automation will download these additional scripts from S3 and execute them in order through the `icp-inception` image as post-install commands. |
 | `icp_inception_image` | no | Name of the bootstrap installation image.  By default it uses `ibmcom/icp-inception:2.1.0.2-ee` to indicate 2.1.0.2 EE, but this will vary in each release.  For ICP 2.1.0.3 EE, you must use the patched installation image `ibmcom/icp-inception:2.1.0.3-ee-fp1`.  You can also install ICP Community edition by specifying `ibmcom/icp-inception:2.1.0.2` for example, |
@@ -66,7 +57,7 @@ In a single availability zone, we divide the network into a public subnet which 
 
 See [Terraform documentation](https://www.terraform.io/intro/getting-started/variables.html) for the format of this file.
 
-5. If using a user-provided TLS certificate containing a custom DNS name, copy `icp-auth.crt` and `icp-auth.key` to this directory before installation to the `cfc-certs` directory.  See [documentation](https://www.ibm.com/support/knowledgecenter/en/SSBS6K_2.1.0/installing/create_ca_cert.html) for more details.  The certificate should contain the `user_provided_cert_dns` as a common name, and the DNS entry corresponding should be a CNAME pointing at the created ELB DNS entry for the master console.
+5. If using a user-provided TLS certificate containing a custom DNS name, copy `icp-auth.crt` and `icp-auth.key` to this directory before installation to the `cfc-certs/router` directory.  See [documentation](https://www.ibm.com/support/knowledgecenter/en/SSBS6K_3.1.2/installing/create_cert.html) for more details.  The certificate should contain the `user_provided_cert_dns` as a common name, and the DNS entry corresponding should be a CNAME pointing at the created ELB DNS entry for the master console.
 
 6. Provide AWS credentials using environment variables:
 
@@ -95,7 +86,7 @@ To move forward and create the objects, use the following command:
 terraform apply
 ```
 
-This will kick off all infrastructure objects.  Once the infrastructure is created, the installation runs silently on the boot master (i.e. `icp-master01`) until it completes.  To monitor the installation, you can provision a bastion host which is placed on the public subnet and use it as a jumpbox into the `icp-master01` host by setting the number of bastion nodes in `terraform.tfvars` to 1.  
+This will kick off all infrastructure objects.  Once the infrastructure is created, the installation runs silently on the boot master (i.e. `icp-master01`) until it completes.  To monitor the installation, you can provision a bastion host which is placed on the public subnet and use it as a jumpbox into the `icp-master01` host by setting the number of bastion nodes in `terraform.tfvars` to 1.
 
 ```
 bastion = {
@@ -134,47 +125,197 @@ For recovery, master and proxy nodes have Network Interfaces created and attache
 
 #### IAM Configuration
 
-An IAM role is created in AWS and attached to each EC2 instance with the following policy:
+Two IAM roles are created in AWS. They are:
 
+1. One role for master node
+2. One role for all other nodes.
+
+The master node role has the following policies associated:
+
+1. S3 bucket policy
 ```
 {
   "Version": "2012-10-17",
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": "ec2:Describe*",
+      "Action": [ "ec2:AttachVolume", "ec2:AuthorizeSecurityGroupIngress", "ec2:CreateRoute",
+                  "ec2:CreateSecurityGroup", "ec2:CreateTags", "ec2:CreateVolume",
+                  "ec2:DeleteRoute", "ec2:DeleteSecurityGroup", "ec2:DeleteVolume",
+                  "ec2:DescribeInstances", "ec2:DescribeRegions", "ec2:DescribeRouteTables",
+                  "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets", "ec2:DescribeVolumes",
+                  "ec2:DescribeVpcs", "ec2:DetachVolume", "ec2:ModifyInstanceAttribute",
+                  "ec2:ModifyVolume", "ec2:RevokeSecurityGroupIngress" ],
       "Resource": "*"
-    },
+    }
+  ]
+}
+```
+2. EC2 Message Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
       "Effect": "Allow",
-      "Action": "ec2:AttachVolume",
+      "Action": [ "ec2messages:GetMessages"],
       "Resource": "*"
-    },
+    }
+  ]
+}
+```
+3. SSM Access policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
       "Effect": "Allow",
-      "Action": "ec2:DetachVolume",
+      "Action": [ "ssm:PutParameter", "ssm:GetParameter", "ssm:DeleteParameters", "ssm:UpdateInstanceInformation", "ssm:ListAssociations", "ssm:ListInstanceAssociations"],
       "Resource": "*"
-    },
+    }
+  ]
+}
+```
+4. Autoscale Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["ec2:*"],
-      "Resource": ["*"]
-    },
+      "Action": [ "autoscaling:DescribeAutoScalingGroups", "autoscaling:DescribeLaunchConfigurations", "autoscaling:DescribeTags" ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+5. EC2 Access Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["elasticloadbalancing:*"],
-      "Resource": ["*"]
+      "Action": [ "ec2:AttachVolume", "ec2:AuthorizeSecurityGroupIngress", "ec2:CreateRoute",
+                  "ec2:CreateSecurityGroup", "ec2:CreateTags", "ec2:CreateVolume",
+                  "ec2:DeleteRoute", "ec2:DeleteSecurityGroup", "ec2:DeleteVolume",
+                  "ec2:DescribeInstances", "ec2:DescribeRegions", "ec2:DescribeRouteTables",
+                  "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets", "ec2:DescribeVolumes",
+                  "ec2:DescribeVpcs", "ec2:DetachVolume", "ec2:ModifyInstanceAttribute",
+                  "ec2:ModifyVolume", "ec2:RevokeSecurityGroupIngress" ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+6. ELB Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [ "elasticloadbalancing:AddTags", "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
+                  "elasticloadbalancing:AttachLoadBalancerToSubnets", "elasticloadbalancing:ConfigureHealthCheck",
+                  "elasticloadbalancing:CreateListener", "elasticloadbalancing:CreateLoadBalancer",
+                  "elasticloadbalancing:CreateLoadBalancerPolicy", "elasticloadbalancing:CreateLoadBalancerListeners",
+                  "elasticloadbalancing:CreateTargetGroup", "elasticloadbalancing:DeleteListener",
+                  "elasticloadbalancing:DeleteLoadBalancer", "elasticloadbalancing:DeleteLoadBalancerListeners",
+                  "elasticloadbalancing:DeleteTargetGroup", "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                  "elasticloadbalancing:DescribeListeners", "elasticloadbalancing:DescribeLoadBalancers",
+                  "elasticloadbalancing:DescribeLoadBalancerAttributes", "elasticloadbalancing:DescribeTargetGroups",
+                  "elasticloadbalancing:DescribeTargetHealth", "elasticloadbalancing:DetachLoadBalancerFromSubnets",
+                  "elasticloadbalancing:ModifyListener", "elasticloadbalancing:ModifyLoadBalancerAttributes",
+                  "elasticloadbalancing:ModifyTargetGroup", "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                  "elasticloadbalancing:RegisterTargets", "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
+                  "elasticloadbalancing:SetLoadBalancerPoliciesOfListener" ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+7. IAM policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [ "iam:CreateServiceLinkedRole" ],
+      "Resource": "*"
     }
   ]
 }
 ```
 
+The other node role has the following policies associated:
+
+1. S3 bucket policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [ "s3:ListBucket", "s3:GetObject" ],
+      "Resource": [
+         "${aws_s3_bucket.icp_binaries.arn}",
+         "${aws_s3_bucket.icp_binaries.arn}/*",
+         "${aws_s3_bucket.icp_config_backup.arn}",
+         "${aws_s3_bucket.icp_config_backup.arn}/*",
+         "${aws_s3_bucket.icp_registry.arn}",
+         "${aws_s3_bucket.icp_registry.arn}/*"
+      ]
+    }
+  ]
+}
+```
+2. EC2 Message Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [ "ec2messages:GetMessages"],
+      "Resource": "*"
+    }
+  ]
+}
+```
+3. SSM Access policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [ "ssm:PutParameter", "ssm:GetParameter", "ssm:DeleteParameters", "ssm:UpdateInstanceInformation", "ssm:ListAssociations", "ssm:ListInstanceAssociations"],
+      "Resource": "*"
+    }
+  ]
+}
+```
+4. EC2 Access Policy
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+                  "ec2:DescribeInstances", "ec2:DescribeRegions"
+       ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 *(The Kubernetes AWS Cloud Provider needs access to read information from the AWS API about the instance (i.e. which subnet it's in, the private DNS name, whether nodes that have been removed, etc), and to create LoadBalancers and EBS Volumes on demand.)*
 
-Additionally, we add `S3FullAccess` policy so that the IAM role can get installation images out of an S3 bucket and back up the `/opt/ibm/cluster` directory to an S3 bucket after installation.
-
 #### VPC
-- VPC with an internet gateway   
+- VPC with an internet gateway
 - All ICP nodes are placed in private subnets, each with their own NAT Gateway.
   - outbound Internet access from private subnet through NAT Gateway
 - Private EC2 and S3 API endpoints are created in the VPC
@@ -187,7 +328,7 @@ Additionally, we add `S3FullAccess` policy so that the IAM role can get installa
 #### Security Group
 Note that the below are the defaults, and each security group can have its whitelist be configured in `terraform.tfvars`.
 - `icp-bastion`
-  - allow 22 from 0.0.0.0/0   
+  - allow 22 from 0.0.0.0/0
 - `icp-default`
   - allow ALL traffic from itself *(all nodes are in this security group)*
   - *(this is tagged with the cluster id for Kubernetes ELB integration)*
@@ -195,11 +336,11 @@ Note that the below are the defaults, and each security group can have its white
   - allow from 0.0.0.0/0 on port 80
   - allow from 0.0.0.0/0 on port 443
 - `icp-master`
-  - allow from 0.0.0.0/0 on port 8500 (image registry)   
-  - allow from 0.0.0.0/0 on port 8600 (image registry)   
-  - allow from 0.0.0.0/0 on port 8001 (kube api)   
-  - allow from 0.0.0.0/0 on port 8443 (master UI)   
-  - allow from internal  on port 9443 (Auth service)   
+  - allow from 0.0.0.0/0 on port 8500 (image registry)
+  - allow from 0.0.0.0/0 on port 8600 (image registry)
+  - allow from 0.0.0.0/0 on port 8001 (kube api)
+  - allow from 0.0.0.0/0 on port 8443 (master UI)
+  - allow from internal  on port 9443 (Auth service)
 
 #### Load Balancer
 
@@ -224,8 +365,50 @@ For convenience, a private DNS Zone is created in Route 53.  The domain name can
 1. An S3 Bucket for Configuration is created and the `/opt/ibm/cluster` is uploaded after the cluster is installed.  This is not deleted after an `terraform destroy`.
 2. An S3 bucket is created for ICP installation binaries.  This is not deleted after `terraform destroy`.
 3. An S3 bucket is created for ICP image registry storage.
+4. All the S3 buckets are created as private and with the policies of `List Bucket`, `GetObject` and `PutObject` for the resources
+  1. User that creates the Buckets
+  2. VPC resource ID
+  3. Example
+  ```
+  {
+    "Version": "2012-10-17",
+    "Id": "icp_config_backup_vpc-${random_id.xxxx}",
+    "Statement": [
+       {
+         "Sid": "Access-to-terraform-user",
+         "Action": [
+            "s3:GetObject", "s3:PutObject", "s3:ListBucket"
+         ],
+         "Effect": "Allow",
+         "Resource": ["${aws_s3_bucket.icp_config_backup.arn}",
+                      "${aws_s3_bucket.icp_config_backup.arn}/*"],
+         "Principal": {
+           "AWS": [
+             "${data.aws_caller_identity.current.arn}"
+           ]
+         }
+       },
+       {
+         "Sid": "Access-to-icp-vpc",
+         "Action": [
+            "s3:GetObject", "s3:PutObject", "s3:ListBucket"
+         ],
+         "Effect": "Allow",
+         "Resource": ["${aws_s3_bucket.icp_config_backup.arn}",
+                      "${aws_s3_bucket.icp_config_backup.arn}/*"],
+         "Principal": "*",
+         "Condition": {
+           "StringEquals": {
+             "aws:sourceVpc": "${aws_vpc.icp_vpc.id}"
+           }
+         }
+       }
+     ]
+  }
+  ```
 
 #### Auto-scaling group (BETA)
+**Note:** This function is not tested with ICP 3.1.2
 
 An auto-scaling group for the ICP worker nodes is created containing the same configuration as the ICP worker nodes, if `enable_autoscaling` is set to `true`.  Scaling up and down is triggered manually.
 
@@ -256,7 +439,7 @@ The Terraform automation generates `cluster_CA_domain`, `cluster_lb_address`, an
 
 Note the other parameters in the `icp-deploy.tf` module.  The config files are stored in `/opt/ibm/cluster/config.yaml` on the boot-master.
 
-### Installing IBM Cloud Private Community Edition 
+### Installing IBM Cloud Private Community Edition
 
 The following parameters are required settings to install IBM Cloud Private Community Edition.  These values are the preferred values for any conflicting paramters in the `terraform.tfvars` file, as specified above in the [Prerequisites](#prerequisites) section.  These settings have been validated on IBM Cloud Private 3.1.0 Community Edition.
 
